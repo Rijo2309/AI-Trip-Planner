@@ -1,6 +1,7 @@
 import streamlit as st
 from agent import generate_fast_plan
 import re
+import pandas as pd
 
 st.set_page_config(page_title="Rizzo, Your Trip Planner", layout="centered")
 
@@ -34,9 +35,14 @@ st.markdown("""
         margin: 12px 0;
         font-family: monospace;
     }
-    /* Fix for list spacing inside cards */
     .card ul {
         margin-left: 20px;
+    }
+    /* Style for the budget table */
+    .stDataFrame {
+        background: #0f172a;
+        border-radius: 8px;
+        padding: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -49,8 +55,8 @@ st.caption("Fast • Visual • Efficient")
 with st.sidebar:
     st.header("Your Trip")
     destination = st.text_input("Destination", placeholder="e.g. Lucknow, India")
-    days = st.text_input("Days", placeholder="e.g. 3")
-    budget = st.selectbox("Budget", ["Low💲", "Medium 💲💲", "Luxury 💲💲💲"])
+    days = st.text_input("Days", placeholder="e.g. 2")
+    budget_val = st.selectbox("Budget", ["Low💲", "Medium 💲💲", "Luxury 💲💲💲"])
     interests = st.text_input("Interests", placeholder="food, culture, history")
     style = st.selectbox("Travel style", ["Relaxed", "Balanced", "Packed"])
     generate = st.button("Generate Plan ⚡", use_container_width=True)
@@ -59,40 +65,25 @@ with st.sidebar:
 if "plan" not in st.session_state:
     st.session_state.plan = None
 
-# ---------- Generate ----------
-if generate:
-    if not destination or not days:
-        st.warning("Please enter a destination and number of days.")
-    else:
-        memory = {
-            "destination": destination,
-            "days": days,
-            "budget": budget,
-            "interests": interests,
-            "style": style
-        }
-        with st.spinner("Curating your perfect itinerary..."):
-            st.session_state.plan = generate_fast_plan(memory)
-
 # ---------- Improved Helpers ----------
 def clean_text(text):
-    # Remove weird artifacts like "---" or "7)" at the start of lines
+    # Remove separators like "---" or "..." visible in images
     text = re.sub(r"^-+$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\.+$", "", text, flags=re.MULTILINE)
+    # Remove leading numbers like "7)" or "3)" from your screenshots
     text = re.sub(r"^\d+[\)\.]\s*", "", text, flags=re.MULTILINE)
-    # We keep ** for bolding and # for structure now
     return text.strip()
 
-def card(title, content):
+def card(title, content, is_budget=False):
     content = clean_text(content)
-    # Use st.markdown INSIDE the div wrapper for proper rendering
-    st.markdown(f"""
-    <div class="card">
-        <div class="section-title">{title}</div>
-    """, unsafe_allow_html=True)
-    st.markdown(content) # This allows Streamlit to handle bullet points and bolding
-    st.markdown('</div>', unsafe_allow_html=True)
-
-def split_sections(text):
-    sections = {"overview": "", "day": "", "stay": "", "food": "", "transport": "", "budget": ""}
-    lines = text.split("\n")
-    current = "overview"
+    with st.container():
+        st.markdown(f"""
+        <div class="card">
+            <div class="section-title">{title}</div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(content)
+        
+        # Insert the Budget Table if requested
+        if is_budget:
+            st.markdown("
