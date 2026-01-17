@@ -2,8 +2,7 @@ import streamlit as st
 from agent import generate_fast_plan
 import re
 
-st.set_page_config(page_title="Rizzo, your autonomous AI travel planner.
-", layout="centered")
+st.set_page_config(page_title="Rizzo, Your Trip Planner", layout="centered")
 
 # ---------- Styling ----------
 st.markdown("""
@@ -166,5 +165,6 @@ if st.session_state.plan:
     if sections["budget"].strip():
         with st.expander("💸 Budget"):
             card("Budget", sections["budget"])
+
 
 
