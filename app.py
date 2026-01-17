@@ -10,145 +10,156 @@ st.set_page_config(page_title="Rizzo | AI Trip Planner", layout="wide")
 if "plan" not in st.session_state:
     st.session_state.plan = None
 
-# 3. Enhanced CSS Styling
+# 3. Modern & Concise UI Styling
 st.markdown("""
 <style>
-    .card {
+    .day-container {
         background: #1e293b;
+        padding: 20px;
+        border-radius: 12px;
+        border-left: 5px solid #3b82f6;
+        margin-bottom: 25px;
         color: #f1f5f9;
-        padding: 24px;
-        border-radius: 16px;
-        margin-bottom: 20px;
-        border: 1px solid #334155;
     }
-    .section-title {
+    .time-slot {
         color: #60a5fa;
         font-weight: 800;
         text-transform: uppercase;
-        border-bottom: 1px solid #334155;
-        padding-bottom: 8px;
-        margin-bottom: 12px;
+        font-size: 0.85rem;
+        margin-top: 15px;
+        display: block;
+        letter-spacing: 0.5px;
     }
-    .timeline-item {
-        padding: 12px;
-        border-left: 4px solid #3b82f6;
+    .card {
         background: #0f172a;
-        margin: 10px 0;
-        border-radius: 0 10px 10px 0;
-        font-family: monospace;
+        padding: 18px;
+        border-radius: 10px;
+        border: 1px solid #334155;
+        margin-bottom: 15px;
+        color: #f1f5f9;
+    }
+    .section-header {
+        color: #94a3b8;
+        font-size: 0.75rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        margin-bottom: 12px;
+        border-bottom: 1px solid #1e293b;
+        padding-bottom: 5px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# 4. Helper Functions
-def clean_text(text):
-    """Removes separators and numbering artifacts from AI output."""
-    text = re.sub(r"^-+$", "", text, flags=re.MULTILINE)
-    text = re.sub(r"^\.+$", "", text, flags=re.MULTILINE)
-    text = re.sub(r"^\d+[\)\.]\s*", "", text, flags=re.MULTILINE)
-    return text.strip()
+# 4. Logic: Intelligent Text Splitting
+def get_itinerary_days(text):
+    """Splits full text into separate blocks for each Day found."""
+    # Detects Day 1, Day 2, etc. and splits text
+    days = re.split(r'(Day\s*\d+[:\s\-]*)', text)
+    day_list = []
+    if len(days) > 1:
+        for i in range(1, len(days), 2):
+            header = days[i].strip()
+            content = days[i+1] if (i+1) < len(days) else ""
+            # Stop day content if it runs into other logistics headers
+            content = re.split(r'(Food|Logistics|Transport|Stay|Budget)', content)[0]
+            day_list.append((header, content.strip()))
+    return day_list
 
-def render_card(title, content, is_budget=False):
-    """Renders HTML-styled cards. Triple quotes fix the line 89 SyntaxError."""
-    content = clean_text(content)
-    st.markdown(f"""<div class="card"><div class="section-title">{title}</div>""", unsafe_allow_html=True)
-    st.markdown(content)
-    if is_budget:
-        costs = re.findall(r"₹[\d,]+|[\d,]+\s?INR", content)
-        if costs:
-            st.markdown("---")
-            st.table(pd.DataFrame({"Category": ["Estimated Expense"] * len(costs), "Amount": costs}))
-    st.markdown("</div>", unsafe_allow_html=True)
+def extract_section(text, section_name):
+    """Extracts specific logistics sections using regex."""
+    pattern = rf"{section_name}.*?:?(.*?)(?=(Food|Logistics|Transport|Stay|Budget|Day\s*\d|$))"
+    match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+    return match.group(1).strip() if match else "No specific details provided."
 
-def split_sections(text):
-    """Parses raw AI text into distinct content categories."""
-    sections = {"overview": "", "day": "", "stay": "", "food": "", "transport": "", "budget": ""}
-    lines = text.split("\n")
-    current = "overview"
-    triggers = {
-        "day": r"^(day\s*\d+|itinerary|daily plan)", 
-        "stay": r"(where to stay|accommodation|hotel|stay)",
-        "food": r"(must-try dishes|dining guide|restaurant recommendations|food guide)",
-        "transport": r"(transport|getting around|taxi/cab)",
-        "budget": r"(budget|cost|expenses|safety tips|packing checklist)"
-    }
-    for line in lines:
-        strip_line = line.strip()
-        if not strip_line or strip_line.startswith("---"): continue
-        lower_line = strip_line.lower()
-        found_new = False
-        for key, pattern in triggers.items():
-            if re.search(pattern, lower_line):
-                # State lock: prevents meal names from switching sections mid-itinerary
-                if current == "day" and key == "food" and "guide" not in lower_line: continue
-                current = key
-                found_new = True
-                break
-        if found_new:
-            if current == "day": sections[current] += f"\n### {strip_line}\n"
-            continue
-        sections[current] += line + "\n"
-    return sections
-
-# 5. Sidebar Inputs (Fixes KeyError: 'style')
+# 5. Sidebar Navigation
 with st.sidebar:
-    st.header("Trip Settings")
-    dest = st.text_input("Destination", placeholder="e.g. Lucknow")
-    days_val = st.text_input("Days", placeholder="e.g. 2")
-    budget_val = st.selectbox("Budget", ["Low", "Medium", "Luxury"])
-    interests_val = st.text_input("Interests", placeholder="food, culture")
-    # Added 'style' input to prevent KeyErrors in the agent call
-    style_val = st.selectbox("Travel Style", ["Relaxed", "Balanced", "Packed"])
-    generate = st.button("Generate Plan ⚡", use_container_width=True)
+    st.title("🗺️ Rizzo Planner")
+    dest = st.text_input("Destination", placeholder="e.g. Paris")
+    days_val = st.number_input("Days", min_value=1, max_value=10, value=3)
+    budget = st.selectbox("Budget", ["Budget 💲", "Balanced 💲💲", "Luxury 💲💲💲"])
+    style = st.selectbox("Travel Style", ["Relaxed", "Balanced", "Packed"])
+    interests = st.text_input("Interests", placeholder="Food, Art, Hidden Gems")
+    
+    generate = st.button("Generate Plan ⚡", use_container_width=True, type="primary")
 
-# 6. Plan Generation Logic
+# 6. Generation Trigger
 if generate:
-    if not dest or not days_val:
-        st.warning("Please fill in destination and days.")
+    if not dest:
+        st.error("Please enter a destination!")
     else:
+        # Style and interests are passed to agent to ensure concise output
         memory = {
-            "destination": dest,
-            "days": days_val,
-            "budget": budget_val,
-            "interests": interests_val,
-            "style": style_val 
+            "destination": dest, 
+            "days": str(days_val), 
+            "budget": budget, 
+            "style": style, 
+            "interests": interests
         }
-        with st.spinner("Curating your trip..."):
+        with st.spinner(f"Curating your {days_val}-day trip to {dest}..."):
             st.session_state.plan = generate_fast_plan(memory)
 
-# 7. Results Display (Uses Tabs for intuitive UX)
-if st.session_state.get("plan"):
-    sections = split_sections(st.session_state.plan)
-    st.title(f"📍 Trip to {dest}")
+# 7. Main Display (Fixes cut-off and visual clutter)
+if st.session_state.plan:
+    full_text = st.session_state.plan
     
-    tab_plan, tab_logistics = st.tabs(["🗓 Itinerary", "🎒 Logistics & Essentials"])
-    
-    with tab_plan:
-        render_card("Overview", sections["overview"])
-        day_content = clean_text(sections["day"])
-        for line in day_content.split("\n"):
-            if "###" in line:
-                st.subheader(line.replace("###", ""))
-            elif re.search(r"\d{1,2}:\d{2}", line) or "🕒" in line:
-                st.markdown(f'<div class="timeline-item">{line}</div>', unsafe_allow_html=True)
-            else:
-                st.write(line)
+    # Use tabs to separate the detailed daily schedule from logistics
+    tab_itinerary, tab_logistics = st.tabs(["🗓 Daily Itinerary", "🎒 Logistics & Essentials"])
+
+    with tab_itinerary:
+        st.markdown(f"## 📍 {dest.title()}")
+        
+        # Display Overview/Snapshot
+        overview = extract_section(full_text, "Overview")
+        if overview:
+            st.info(overview)
+
+        # Process and Display ALL Days (Fixes Day 2/3 missing issue)
+        itinerary_data = get_itinerary_days(full_text)
+        
+        if itinerary_data:
+            for header, content in itinerary_data:
+                # Formatting time blocks for high scannability
+                formatted = content.replace("Morning:", '<span class="time-slot">🕒 Morning</span>')
+                formatted = formatted.replace("Afternoon:", '<span class="time-slot">☀️ Afternoon</span>')
+                formatted = formatted.replace("Evening:", '<span class="time-slot">🌙 Evening</span>')
+                
+                st.markdown(f"""
+                <div class="day-container">
+                    <h3 style='margin:0;'>{header}</h3>
+                    <div style='margin-top:10px;'>{formatted}</div>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            # Fallback if text format is unexpected
+            st.markdown(full_text)
 
     with tab_logistics:
-        col1, col2 = st.columns(2)
-        with col1:
-            if sections["food"]: render_card("🍽 Food & Dining", sections["food"])
-            if sections["stay"]: render_card("🏨 Stay", sections["stay"])
-        with col2:
-            if sections["transport"]: render_card("🚕 Transport", sections["transport"])
-            if sections["budget"]: render_card("💸 Budget & Safety", sections["budget"], is_budget=True)
+        l_col, r_col = st.columns(2)
+        
+        with l_col:
+            st.markdown('<div class="card"><div class="section-header">🍽 Food & Dining</div>', unsafe_allow_html=True)
+            st.write(extract_section(full_text, "Food"))
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown('<div class="card"><div class="section-header">🏨 Recommended Stay</div>', unsafe_allow_html=True)
+            st.write(extract_section(full_text, "Stay"))
+            st.markdown('</div>', unsafe_allow_html=True)
 
-    # Refinement Section for Follow-up Details
+        with r_col:
+            st.markdown('<div class="card"><div class="section-header">🚕 Transport</div>', unsafe_allow_html=True)
+            st.write(extract_section(full_text, "Transport"))
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown('<div class="card"><div class="section-header">💸 Budget & Safety</div>', unsafe_allow_html=True)
+            st.write(extract_section(full_text, "Budget"))
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    # Refinement Section (Bottom)
     st.divider()
-    st.subheader("🔄 Refine Your Plan")
-    st.info("Mention your travel dates or dietary preferences below to update this plan.")
-    refinement = st.text_area("What would you like to change?", placeholder="e.g. Visiting in winter, prefer vegetarian food...")
-    if st.button("Update Plan"):
-        st.write("Updating your plan with new preferences...")
+    with st.expander("🔄 Refine this plan"):
+        refine_input = st.text_input("Change something (e.g., 'Make it more kid-friendly' or 'I am vegetarian')")
+        if st.button("Update Plan"):
+            st.toast("Updating based on your preferences...")
 else:
-    st.info("👈 Enter your trip details in the sidebar to get started!")
+    st.info("👈 Enter your trip details in the sidebar and click **Generate** to see your full plan!")
