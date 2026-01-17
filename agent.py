@@ -17,11 +17,11 @@ Transport:
 Budget:
 
 User preferences:
-Destination: {memory['destination']}
-Days: {memory['days']}
-Budget: {memory['budget']}
-Interests: {memory['interests']}
-Style: {memory['style']}
+Destination: {memory.get('destination', 'Not specified')}
+Days: {memory.get('days', 'Not specified')}
+Budget: {memory.get('budget', 'Not specified')}
+Interests: {memory.get('interests', 'Not specified')}
+Style: {memory.get('style', 'Not specified')}
 
 Keep it concise, structured, and helpful.
 """
