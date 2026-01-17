@@ -4,27 +4,40 @@ import re
 
 st.set_page_config(page_title="Rizzo, Your Trip Planner", layout="centered")
 
-# ---------- Styling ----------
+# ---------- Improved Styling ----------
 st.markdown("""
 <style>
-.card {
-    background: #1f2937;
-    color: #f9fafb;
-    padding: 16px;
-    border-radius: 16px;
-    margin-bottom: 12px;
-    border: 1px solid #2f3a4a;
-}
-.section-title {
-    font-weight: 600;
-    font-size: 1.1rem;
-    margin-bottom: 6px;
-}
-.timeline-item {
-    padding: 8px 12px;
-    border-left: 3px solid #3b82f6;
-    margin: 8px 0;
-}
+    .card {
+        background: #1e293b;
+        color: #f1f5f9;
+        padding: 24px;
+        border-radius: 16px;
+        margin-bottom: 20px;
+        border: 1px solid #334155;
+        line-height: 1.6;
+    }
+    .section-title {
+        color: #60a5fa;
+        font-weight: 800;
+        font-size: 1.2rem;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid #334155;
+        padding-bottom: 8px;
+    }
+    .timeline-item {
+        padding: 12px 16px;
+        border-left: 4px solid #3b82f6;
+        background: #0f172a;
+        border-radius: 0 12px 12px 0;
+        margin: 12px 0;
+        font-family: monospace;
+    }
+    /* Fix for list spacing inside cards */
+    .card ul {
+        margin-left: 20px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -35,12 +48,12 @@ st.caption("Fast • Visual • Efficient")
 # ---------- Sidebar ----------
 with st.sidebar:
     st.header("Your Trip")
-    destination = st.text_input("Destination")
-    days = st.text_input("Days")
+    destination = st.text_input("Destination", placeholder="e.g. Lucknow, India")
+    days = st.text_input("Days", placeholder="e.g. 3")
     budget = st.selectbox("Budget", ["Low💲", "Medium 💲💲", "Luxury 💲💲💲"])
-    interests = st.text_input("Interests (food, culture, shopping, etc.)")
+    interests = st.text_input("Interests", placeholder="food, culture, history")
     style = st.selectbox("Travel style", ["Relaxed", "Balanced", "Packed"])
-    generate = st.button("Generate ⚡")
+    generate = st.button("Generate Plan ⚡", use_container_width=True)
 
 # ---------- Session ----------
 if "plan" not in st.session_state:
@@ -49,7 +62,7 @@ if "plan" not in st.session_state:
 # ---------- Generate ----------
 if generate:
     if not destination or not days:
-        st.warning("Enter destination and days.")
+        st.warning("Please enter a destination and number of days.")
     else:
         memory = {
             "destination": destination,
@@ -58,113 +71,28 @@ if generate:
             "interests": interests,
             "style": style
         }
-        with st.spinner("Building your trip..."):
+        with st.spinner("Curating your perfect itinerary..."):
             st.session_state.plan = generate_fast_plan(memory)
 
-# ---------- Helpers ----------
+# ---------- Improved Helpers ----------
 def clean_text(text):
-    # Remove Markdown headers (e.g., #, ##, ###)
-    text = re.sub(r"#+\s*", "", text)  
-    # Remove bold markers
-    text = re.sub(r"\*\*", "", text)  
-    # Standardize bullet points
-    text = re.sub(r"- ", "• ", text)  
+    # Remove weird artifacts like "---" or "7)" at the start of lines
+    text = re.sub(r"^-+$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\d+[\)\.]\s*", "", text, flags=re.MULTILINE)
+    # We keep ** for bolding and # for structure now
     return text.strip()
 
 def card(title, content):
     content = clean_text(content)
-    content = content.replace("\n", "<br>")
+    # Use st.markdown INSIDE the div wrapper for proper rendering
     st.markdown(f"""
     <div class="card">
         <div class="section-title">{title}</div>
-        {content}
-    </div>
     """, unsafe_allow_html=True)
+    st.markdown(content) # This allows Streamlit to handle bullet points and bolding
+    st.markdown('</div>', unsafe_allow_html=True)
 
 def split_sections(text):
-    sections = {
-        "overview": "",
-        "day": "",
-        "stay": "",
-        "food": "",
-        "transport": "",
-        "budget": ""
-    }
-
+    sections = {"overview": "", "day": "", "stay": "", "food": "", "transport": "", "budget": ""}
     lines = text.split("\n")
     current = "overview"
-
-    # Define keywords/regex for each section to make it "smarter"
-    triggers = {
-        "day": r"(day\s*plan|itinerary|daily)",
-        "stay": r"(stay|accommodation|hotel|where to stay)",
-        "food": r"(food|dining|restaurant|meals)",
-        "transport": r"(transport|getting around|travel)",
-        "budget": r"(budget|cost|expenses)"
-    }
-
-    for line in lines:
-        clean_line = line.lower().strip()
-        
-        # Check if the line is a header for a new section
-        found_new_section = False
-        for key, pattern in triggers.items():
-            if re.search(pattern, clean_line):
-                current = key
-                found_new_section = True
-                break
-        
-        # Skip adding the header line itself to the content
-        if found_new_section:
-            continue
-
-        sections[current] += line + "\n"
-
-    return sections
-
-# ---------- Display ----------
-if st.session_state.plan:
-    st.subheader("Your Plan")
-
-    sections = split_sections(st.session_state.plan)
-
-    # Combine sidebar inputs into the Overview card
-    with st.expander("🧭 Overview", expanded=True):
-        trip_summary = f"""
-        • **Destination:** {destination}
-        • **Days:** {days}
-        • **Budget:** {budget}
-        • **Style:** {style}
-        • **Interests:** {interests}
-        
-        """
-        # Join user options with AI-generated overview text
-        full_overview = trip_summary + sections["overview"]
-        card("Trip Snapshot", full_overview)
-
-    if sections["day"].strip():
-        with st.expander("🗓 Day Plan"):
-            for line in clean_text(sections["day"]).split("\n"):
-                if re.search(r"\d{1,2}:\d{2}", line):
-                    st.markdown(f'<div class="timeline-item">🕒 {line}</div>', unsafe_allow_html=True)
-                else:
-                    st.write(line)
-
-    if sections["stay"].strip():
-        with st.expander("🏨 Stay"):
-            card("Where to stay", sections["stay"])
-
-    if sections["food"].strip():
-        with st.expander("🍽 Food"):
-            card("Food", sections["food"])
-
-    if sections["transport"].strip():
-        with st.expander("🚕 Transport"):
-            card("Transport", sections["transport"])
-
-    if sections["budget"].strip():
-        with st.expander("💸 Budget"):
-            card("Budget", sections["budget"])
-
-
-
