@@ -2,7 +2,7 @@ from openai import OpenAI
 
 client = OpenAI()
 
-def generate_initial_plan(memory):
+def generate_fast_plan(memory):
     prompt = f"""
 Rizzo, your autonomous AI travel planner.
 
@@ -55,3 +55,4 @@ Update the plan accordingly and clearly explain what changed.
     )
 
     return response.choices[0].message.content
+
