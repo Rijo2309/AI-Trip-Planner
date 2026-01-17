@@ -70,4 +70,5 @@ if st.session_state.plan:
 
             st.session_state.chat.append({"role": "agent", "content": refined})
             st.session_state.plan = refined
-            st.experimental_rerun()
+            st.rerun()
+
