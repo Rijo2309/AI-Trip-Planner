@@ -29,7 +29,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------- Title ----------
-st.title("🌍 AI Trip Planner")
+st.title("🌍 Your AI Trip Planner")
 st.caption("Fast • Visual • Efficient")
 
 # ---------- Sidebar ----------
@@ -37,7 +37,7 @@ with st.sidebar:
     st.header("Your Trip")
     destination = st.text_input("Destination")
     days = st.text_input("Days")
-    budget = st.selectbox("Budget", ["Low", "Medium", "Luxury"])
+    budget = st.selectbox("Budget", ["Low💲", "Medium 💲💲", "Luxury 💲💲💲"])
     interests = st.text_input("Interests (food, culture, shopping, etc.)")
     style = st.selectbox("Travel style", ["Relaxed", "Balanced", "Packed"])
     generate = st.button("Generate ⚡")
@@ -165,3 +165,4 @@ if st.session_state.plan:
     if sections["budget"].strip():
         with st.expander("💸 Budget"):
             card("Budget", sections["budget"])
+
